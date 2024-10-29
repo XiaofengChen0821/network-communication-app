@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account</title>
+    <link rel="stylesheet" href="style.css"> <!-- 连接到你的样式表 -->
+</head>
+<body>
+    <div class="create-account-form">
+        <h2>Create Account</h2>
+        <input type="text" placeholder="First Name" id="first-name">
+        <input type="text" placeholder="Last Name" id="last-name">
+        <input type="text" placeholder="Username" id="create-username">
+        <input type="email" placeholder="Email" id="email">
+        <input type="password" placeholder="Password" id="create-password">
+        <button id="submitCreateAccount">Create Account</button>
+
+        <p>Already have an account? <a href="/index.html">Back to Login</a></p>
+    </div>
+
+    <script src="app.js"></script> <!-- 连接到你的公共 JavaScript 文件 -->
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="style.css"> <!-- 假设你有CSS文件 -->
+</head>
+<body>
+
+    <div class="dashboard">
+        <h2>Welcome to the Dashboard</h2>
+
+        <!-- Create Account 按钮 -->
+        <button id="createAccountButton">Create Account</button>
+
+        <!-- 创建账户的表单，默认隐藏 -->
+        <div id="createAccountForm" style="display:none; margin-top: 20px;">
+            <h3>Create New Account</h3>
+            <input type="text" id="first-name" placeholder="First Name">
+            <input type="text" id="last-name" placeholder="Last Name">
+            <input type="text" id="create-username" placeholder="Username">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="create-password" placeholder="Password">
+            <button id="submitCreateAccount">Submit</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script> <!-- 引入公共的app.js文件 -->
+</body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .sidebar {
+            width: 20%;
+            background-color: black;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .sidebar button {
+            background-color: #333;
+            border: none;
+            color: white;
+            padding: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .sidebar button:hover {
+            background-color: #555;
+        }
+
+        .main {
+            width: 60%;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        th {
+            background-color: #333;
+            color: white;
+        }
+
+        td.active {
+            color: green;
+        }
+
+        td.inactive {
+            color: red;
+        }
+
+        .details {
+            width: 20%;
+            background-color: black;
+            color: white;
+            padding: 20px;
+        }
+
+        .details h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .details p {
+            font-size: 16px;
+        }
+
+        #graphContainer {
+            margin-top: 20px;
+            border: 1px solid black;
+        }
+
+        #graph {
+            width: 600px;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部用户信息和退出按钮 -->
+    <div id="user-info">
+        <img src="default-avatar.png" alt="User Avatar">
+        <span id="username">Logged User</span>
+        <button id="logoutButton">Logout</button>
+    </div>
+
+    <!-- 侧边栏任务按钮 -->
+    <div class="sidebar">
+        <h2>Tasks</h2>
+        <button id="addNodeButton">Add Node</button>
+        <button id="deleteNodeButton">Delete Node</button>
+        <button id="sendMessageButton">Send Message</button>
+        <button id="viewBufferButton">View System Buffer</button>
+        <button id="clearBufferButton">Clear System Buffer</button>
+    </div>
+
+    <!-- 节点列表显示 -->
+    <div class="main">
+        <table id="nodeTable">
+            <thead>
+                <tr>
+                    <th>Node ID</th>
+                    <th>Left Node</th>
+                    <th>Right Node</th>
+                    <th>Status</th>
+                    <th>Inbox (used/total)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 节点数据将通过 JavaScript 动态填充 -->
+            </tbody>
+        </table>
+
+        <!-- 添加一个用于显示节点关系的SVG -->
+        <div id="graphContainer">
+            <svg id="graph"></svg>
+        </div>
+    </div>
+
+    <!-- 右侧节点详细信息显示 -->
+    <div class="details">
+        <h2>Node Details</h2>
+        <p id="nodeDetails">Select a node to see the details here.</p>
+    </div>
+
+    <script>
+        let nodes = [
+            { id: 'N1', left: 'N3', right: 'N2', status: 'Active', inbox: [], inboxSize: 5 },
+            { id: 'N2', left: 'N1', right: 'N3', status: 'Active', inbox: [], inboxSize: 5 },
+            { id: 'N3', left: 'N2', right: 'N1', status: 'Active', inbox: [], inboxSize: 5 }
+        ];
+
+        let systemBuffer = [];
+        const bufferSizeLimit = 10;
+
+        function toggleNodeStatus(nodeId) {
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                node.status = node.status === 'Active' ? 'Inactive' : 'Active';
+                populateTable(); // 切换状态后重新渲染表格和关系图
+            }
+        }
+
+        // 插入新节点到现有闭环中，并更新左右邻居
+        function addNode(newNodeId) {
+            const inboxSize = parseInt(prompt('Enter the inbox size for the new node (default is 5):')) || 5;
+
+            if (nodes.length >= 3) {
+                const firstNode = nodes[0];
+                const secondNode = nodes[1];
+
+                const newNode = {
+                    id: newNodeId,
+                    left: firstNode.id,
+                    right: secondNode.id,
+                    status: 'Active',
+                    inbox: [],
+                    inboxSize: inboxSize
+                };
+
+                firstNode.right = newNodeId;
+                secondNode.left = newNodeId;
+
+                nodes.splice(1, 0, newNode);
+
+                populateTable();
+            } else {
+                const newNode = {
+                    id: newNodeId,
+                    left: nodes[nodes.length - 1].id,
+                    right: nodes[0].id,
+                    status: 'Active',
+                    inbox: [],
+                    inboxSize: inboxSize
+                };
+
+                nodes[nodes.length - 1].right = newNodeId;
+                nodes[0].left = newNodeId;
+
+                nodes.push(newNode);
+                populateTable();
+            }
+        }
+
+        // 发送消息到指定节点
+        document.getElementById('sendMessageButton').addEventListener('click', () => {
+            const senderNodeId = prompt('Enter the sender node ID:');
+            const targetNodeId = prompt('Enter the target node ID:');
+            const messageContent = prompt('Enter the message to send:');
+            
+            if (senderNodeId && targetNodeId && messageContent) {
+                const senderNode = nodes.find(node => node.id === senderNodeId);
+                const targetNode = nodes.find(node => node.id === targetNodeId);
+                if (senderNode && targetNode) {
+                    // 创建消息对象
+                    let message = {
+                        senderId: senderNodeId,
+                        receiverId: targetNodeId,
+                        content: messageContent,
+                        timestampCreated: new Date().toLocaleString(),
+                        timestampReceived: null,
+                        path: [senderNodeId],
+                        status: 'OnRoute'
+                    };
+
+                    // 检查目标节点的状态和收件箱容量
+                    if (targetNode.status === 'Inactive' || targetNode.inbox.length >= targetNode.inboxSize) {
+                        message.status = targetNode.status === 'Inactive' ? 'NotDelivered-NodeInactive' : 'NotDelivered-InboxFull';
+                        systemBuffer.push(message);
+                        alert(`Message could not be delivered and is stored in the system buffer.`);
+                    } else {
+                        message.timestampReceived = new Date().toLocaleString();
+                        message.status = 'Delivered';
+                        message.path.push(targetNodeId);
+                        targetNode.inbox.push(message);
+                        alert(`Message "${messageContent}" sent from ${senderNodeId} to ${targetNodeId}`);
+                    }
+                } else {
+                    alert('Sender or Receiver node not found.');
+                }
+            }
+        });
+
+        // 用于填充节点表格并更新关系图
+        function populateTable() {
+            const tableBody = document.querySelector('#nodeTable tbody');
+            tableBody.innerHTML = '';
+
+            nodes.forEach(node => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${node.id}</td>
+                    <td>${node.left}</td>
+                    <td>${node.right}</td>
+                    <td class="${node.status.toLowerCase()}">${node.status}</td>
+                    <td>${node.inbox.length}/${node.inboxSize}</td>
+                    <td>
+                        <button onclick="toggleNodeStatus('${node.id}')">${node.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
+                    </td>
+                `;
+                row.addEventListener('click', () => showNodeDetails(node));
+                tableBody.appendChild(row);
+            });
+
+            updateGraph();
+        }
+
+        // 显示节点详情，包括收件箱中的消息
+        function showNodeDetails(node) {
+            const detailsDiv = document.getElementById('nodeDetails');
+            let detailsHtml = `
+                <strong>Node ID:</strong> ${node.id}<br>
+                <strong>Left Neighbor:</strong> ${node.left}<br>
+                <strong>Right Neighbor:</strong> ${node.right}<br>
+                <strong>Status:</strong> ${node.status}<br>
+                <strong>Messages:</strong><br>
+            `;
+
+            if (node.inbox.length > 0) {
+                node.inbox.forEach((msg, index) => {
+                    detailsHtml += `
+                        <strong>Message ${index + 1}:</strong><br>
+                        Sender: ${msg.senderId}<br>
+                        Receiver: ${msg.receiverId}<br>
+                        Content: ${msg.content}<br>
+                        Path: ${msg.path.join(' -> ')}<br>
+                        Sent At: ${msg.timestampCreated}<br>
+                        Received At: ${msg.timestampReceived || 'Not received yet'}<br>
+                        Status: ${msg.status}<br><br>
+                    `;
+                });
+            } else {
+                detailsHtml += 'No messages.';
+            }
+
+            detailsDiv.innerHTML = detailsHtml;
+        }
+
+        // 使用 D3.js 绘制节点关系图
+        function updateGraph() {
+            const svg = d3.select("#graph");
+            svg.selectAll("*").remove();
+
+            const nodesData = nodes.map(node => ({ id: node.id, status: node.status }));
+            const linksData = nodes.map(node => ({
+                source: node.id,
+                target: node.right
+            }));
+
+            const simulation = d3.forceSimulation(nodesData)
+                .force("link", d3.forceLink(linksData).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-400))
+                .force("center", d3.forceCenter(300, 200));
+
+            const link = svg.selectAll(".link")
+                .data(linksData)
+                .enter().append("line")
+                .attr("class", "link")
+                .style("stroke", "#999")
+                .style("stroke-width", 2);
+
+            const node = svg.selectAll(".node")
+                .data(nodesData)
+                .enter().append("circle")
+                .attr("class", "node")
+                .attr("r", 10)
+                .style("fill", d => d.status === 'Active' ? "green" : "red")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            const text = svg.selectAll(".text")
+                .data(nodesData)
+                .enter().append("text")
+                .attr("class", "text")
+                .attr("dx", 12)
+                .attr("dy", ".35em")
+                .text(d => d.id);
+
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+
+                text
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        // 查看系统缓冲区中的消息
+        document.getElementById('viewBufferButton').addEventListener('click', () => {
+            if (systemBuffer.length === 0) {
+                alert('System buffer is empty.');
+            } else {
+                let bufferContent = 'System Buffer:\n';
+                systemBuffer.forEach((entry, index) => {
+                    bufferContent += `${index + 1}. Message: "${entry.message}", Target Node: ${entry.targetNodeId}, Reason: ${entry.reason}\n`;
+                });
+                alert(bufferContent);
+            }
+        });
+
+        // 清空系统缓冲区
+        document.getElementById('clearBufferButton').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the system buffer?')) {
+                systemBuffer = [];
+                alert('System buffer cleared.');
+            }
+        });
+
+        // 节点添加
+        document.getElementById('addNodeButton').addEventListener('click', () => {
+            const newNodeId = prompt('Enter new node ID:');
+            if (newNodeId) {
+                addNode(newNodeId);
+            }
+        });
+
+        // 节点删除
+        document.getElementById('deleteNodeButton').addEventListener('click', () => {
+            const nodeIdToDelete = prompt('Enter node ID to delete:');
+            nodes = nodes.filter(node => node.id !== nodeIdToDelete);
+            populateTable();
+        });
+        
+
+        populateTable();
+    </script>
+</body>
+</html>
